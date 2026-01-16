@@ -616,12 +616,23 @@ document.getElementById('authBtn').onclick = async () => {
         const nameVal = document.getElementById('suName').value || "";
         const ageVal = document.getElementById('suAge').value;
         const phoneVal = document.getElementById('suPhone').value || "";
-        const { data, error } = await sb.auth.signUp({ email, password, options: { data: { full_name: nameVal, age: ageVal, phone: phoneVal } } });
+        
+        // UPDATED SIGNUP CALL WITH REDIRECT
+        const { data, error } = await sb.auth.signUp({ 
+            email, 
+            password, 
+            options: { 
+                emailRedirectTo: 'https://raaya-lifts.onrender.com/thankyou.html', // <--- THE FIX
+                data: { full_name: nameVal, age: ageVal, phone: phoneVal } 
+            } 
+        });
+
         if (error) { showMsg("ERROR", error.message); } 
         else { 
             const formData = new FormData(); formData.append('_subject', 'NEW AGENT: '+nameVal); formData.append('name', nameVal); formData.append('email', email); formData.append('phone', phoneVal);
             fetch("https://formspree.io/f/xgvnrrrv", { method: "POST", body: formData, headers: { 'Accept': 'application/json' } });
-            showMsg("PROTOCOL INITIATED", "Identity created. Verify email."); closeAuth(); 
+            showMsg("PROTOCOL INITIATED", "Verification link sent to your comms. Check email."); 
+            closeAuth(); 
         }
     } else {
         const { data, error } = await sb.auth.signInWithPassword({ email, password });
@@ -629,7 +640,6 @@ document.getElementById('authBtn').onclick = async () => {
         else { user = data.user; closeAuth(); await fetchUserProfile(); }
     }
 }
-
 window.openAuth=()=>{document.getElementById('authModal').style.display='grid'}
 window.closeAuth=()=>{document.getElementById('authModal').style.display='none'}
 document.getElementById('toggleAuth').onclick=()=>{

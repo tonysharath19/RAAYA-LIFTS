@@ -19,7 +19,6 @@
         justify-content: center;
         overflow: hidden;
         text-align: center;
-        /* Subtle background texture matching main site */
         background-image: linear-gradient(rgba(3,7,8,0.85), rgba(3,7,8,0.85)), url('https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=2070');
         background-size: cover;
         background-position: center;
@@ -50,6 +49,7 @@
         fill: var(--success);
         filter: drop-shadow(0 0 15px var(--success));
         animation: pulse 2s infinite;
+        transition: fill 0.3s;
     }
 
     h1 {
@@ -69,6 +69,7 @@
         margin-bottom: 25px;
         letter-spacing: 3px;
         font-weight: 700;
+        text-transform: uppercase;
     }
 
     p {
@@ -101,25 +102,58 @@
         transform: scale(1.02);
     }
 
+    /* ERROR STATE OVERRIDES */
+    .error-mode .icon-box svg { fill: var(--warn); filter: drop-shadow(0 0 15px var(--warn)); }
+    .error-mode .subtitle { color: var(--warn); }
+    .error-mode .container { border-color: var(--warn); }
+    .error-mode .btn { background: var(--warn); color: #fff; }
+    .error-mode .btn:hover { box-shadow: 0 0 25px var(--warn); }
+
     @keyframes pulse { 0% {opacity:1;} 50% {opacity:0.7;} 100% {opacity:1;} }
 </style>
 </head>
 <body>
 
-    <div class="container">
-        <div class="icon-box">
-            <svg viewBox="0 0 24 24">
+    <div class="container" id="statusCard">
+        <div class="icon-box" id="iconBox">
+            <svg viewBox="0 0 24 24" id="statusIcon">
                 <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/>
             </svg>
         </div>
 
-        <div class="subtitle">PROTOCOL COMPLETE</div>
-        <h1>IDENTITY SECURED</h1>
+        <div class="subtitle" id="statusSub">PROTOCOL COMPLETE</div>
+        <h1 id="statusTitle">IDENTITY SECURED</h1>
         
-        <p>Your neural link has been established successfully. Your credentials are verified and encrypted in the RAAYA LIFTS database.</p>
+        <p id="statusMsg">Your neural link has been established successfully. Your credentials are verified and encrypted in the RAAYA LIFTS database.</p>
 
-        <a href="index.html" class="btn">CONTINUE TO SCULPT</a>
+        <a href="index.html" class="btn" id="actionBtn">CONTINUE TO SCULPT</a>
     </div>
 
+<script type="module">
+import{createClient}from'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
+const sb=createClient('https://rpgygmrhkmevhneebbxo.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwZ3lnbXJoa21ldmhuZWViYnhvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgzOTkzNDYsImV4cCI6MjA4Mzk3NTM0Nn0.Haf3zKhLVzW_uBWckv_O2pdfYABWaDiExP1Kwckjrpc')
+
+// Handle the email link logic
+sb.auth.onAuthStateChange((event, session) => {
+    // If we have a session, the default HTML (Success) is correct. We do nothing.
+    // If we DO NOT have a session, and there is an error in the URL, we show Error State.
+    
+    if (event === 'SIGNED_OUT' || (!session && window.location.hash.includes('error'))) {
+        // Trigger Error Mode
+        document.body.classList.add('error-mode');
+        
+        document.getElementById('statusSub').innerText = "CONNECTION FAILED";
+        document.getElementById('statusTitle').innerText = "LINK EXPIRED";
+        document.getElementById('statusMsg').innerText = "The verification vector is invalid or has timed out. Please request a new secure link from the main terminal.";
+        
+        const btn = document.getElementById('actionBtn');
+        btn.innerText = "RETURN TO BASE";
+        btn.href = "index.html"; // Still goes to index, but user knows they need to try again
+        
+        // Swap Icon to 'X' (Warning)
+        document.getElementById('statusIcon').innerHTML = '<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>';
+    }
+});
+</script>
 </body>
 </html>

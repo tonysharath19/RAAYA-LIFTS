@@ -670,25 +670,63 @@ window.addToCart=(n,p)=>{ if(!user){openAuth();return} cart.push({name:n,price:p
 window.openCart=()=>{ const c=document.getElementById('cartItems'); c.innerHTML=''; let t=0; cart.forEach(i=>{t+=i.price; c.innerHTML+=`<div class="cart-item"><span>${i.name}</span><span>₹${i.price}</span></div>`}); document.getElementById('cartTotal').innerText=`₹${t}`; document.getElementById('cartModal').style.display='grid'; }
 window.openPay=()=>{ if(cart.length===0)return; pendingMembership=null; document.getElementById('cartModal').style.display='none'; document.getElementById('payModal').style.display='grid'; document.getElementById('payForm').style.display='block'; document.getElementById('tracker').style.display='none'; }
 window.processPay = async () => {
-    document.getElementById('payForm').style.display='none';
+    document.getElementById('payForm').style.display = 'none';
     const userName = user?.profile?.full_name || user?.email || "Unknown Agent";
+    
+    // 1. MEMBERSHIP PURCHASE LOGIC
     if (pendingMembership) {
+        // Update DB
         await sb.from('profiles').update({ membership_tier: pendingMembership }).eq('id', user.id);
         let price = pendingMembership === 'Standard' ? 999 : pendingMembership === 'Premium' ? 1999 : 2499;
         await sb.from('sales_ledger').insert([{ user_id: user.id, user_name: userName, item_name: pendingMembership + " Membership", category: "Membership", amount: price }]);
+        
+        // --- FORMSPREE ALERT START ---
+        const formData = new FormData();
+        formData.append('_subject', 'NEW SALE: ' + pendingMembership + ' Membership');
+        formData.append('Agent Name', userName);
+        formData.append('Item Purchased', pendingMembership + " Membership");
+        formData.append('Amount Paid', "₹" + price);
+        
+        fetch("https://formspree.io/f/xgvnrrrv", { 
+            method: "POST", 
+            body: formData, 
+            headers: { 'Accept': 'application/json' } 
+        }).catch(err => console.error("Alert Error:", err));
+        // --- FORMSPREE ALERT END ---
+
         showMsg("UPGRADE COMPLETE", `Welcome to the ${pendingMembership} Tier.`);
         await fetchUserProfile();
-        document.getElementById('payModal').style.display='none';
+        document.getElementById('payModal').style.display = 'none';
+    
+    // 2. PRODUCT CART LOGIC
     } else {
         if(cart.length > 0) {
+            // Save to DB
             const salesData = cart.map(item => ({ user_id: user.id, user_name: userName, item_name: item.name, category: "Product", amount: item.price }));
             await sb.from('sales_ledger').insert(salesData);
+
+            // --- FORMSPREE ALERT START ---
+            const formData = new FormData();
+            const itemList = cart.map(i => `${i.name} (₹${i.price})`).join(', ');
+            const totalAmount = cart.reduce((sum, item) => sum + item.price, 0);
+
+            formData.append('_subject', 'NEW SALE: Product Order');
+            formData.append('Agent Name', userName);
+            formData.append('Items', itemList);
+            formData.append('Total Value', "₹" + totalAmount);
+
+            fetch("https://formspree.io/f/xgvnrrrv", { 
+                method: "POST", 
+                body: formData, 
+                headers: { 'Accept': 'application/json' } 
+            }).catch(err => console.error("Alert Error:", err));
+            // --- FORMSPREE ALERT END ---
         }
-        document.getElementById('tracker').style.display='block';
-        cart=[]; document.getElementById('cartCount').innerText=0; 
+        document.getElementById('tracker').style.display = 'block';
+        cart = []; 
+        document.getElementById('cartCount').innerText = 0; 
     }
 }
-
 document.getElementById('contactForm').onsubmit=async(e)=>{
     e.preventDefault(); const f=new FormData(e.target); const obj=Object.fromEntries(f);
     await sb.from('contact_messages').insert([obj]);

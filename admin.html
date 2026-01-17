@@ -469,25 +469,56 @@ window.loadComms = async () => {
     const month = document.getElementById('commsMonth').value;
     let query = sb.from('contact_messages').select('*').order('created_at', { ascending: false });
 
+    // FIX: Only apply filter if a specific month is actually selected
     if(month) {
-        query = query.gte('created_at', `${month}-01`).lte('created_at', `${month}-31`);
+        // Calculate start and end of the selected month
+        const start = `${month}-01`;
+        // Create a date object to find the last day of the month accurately
+        const date = new Date(month + '-01'); 
+        const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+        const end = `${month}-${lastDay}`;
+        
+        query = query.gte('created_at', start).lte('created_at', end);
     }
 
-    const { data } = await query;
+    const { data, error } = await query;
+    
+    if (error) {
+        console.error("Comms Error:", error);
+        alert("Failed to load messages. Check console.");
+        return;
+    }
+
     currentCommsData = data || [];
 
-    document.querySelector('#commsTable tbody').innerHTML = data.map(m => `
+    const tbody = document.querySelector('#commsTable tbody');
+    tbody.innerHTML = ''; // Clear existing rows
+
+    if (currentCommsData.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; opacity:0.5; padding:20px;">NO TRANSMISSIONS FOUND</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = currentCommsData.map(m => `
         <tr>
-            <td>${new Date(m.created_at).toLocaleDateString()}</td>
-            <td>${m.name}</td>
-            <td>${m.email}<br>${m.phone}</td>
-            <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis">${m.question}</td>
+            <td>${new Date(m.created_at).toLocaleDateString()} ${new Date(m.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
+            <td style="font-weight:bold; color:var(--neon)">${m.name}</td>
+            <td>
+                <div style="font-size:0.8rem">${m.email}</div>
+                <div style="font-size:0.7rem; opacity:0.7">${m.phone}</div>
+            </td>
+            <td style="max-width:300px; white-space:normal; line-height:1.4;">${m.question}</td>
             <td><button class="action-btn btn-delete" onclick="deleteMsg('${m.id}')">X</button></td>
         </tr>
     `).join('');
 }
-window.deleteMsg = async(id) => { await sb.from('contact_messages').delete().eq('id', id); loadComms(); }
 
+window.deleteMsg = async(id) => { 
+    if(confirm("DELETE TRANSMISSION?")) {
+        await sb.from('contact_messages').delete().eq('id', id); 
+        loadComms(); 
+    }
+}
 // --- LOGIC: CMS (TIERS, FACILITIES, VAULT) ---
 async function loadCMS() {
     // 1. Tiers
